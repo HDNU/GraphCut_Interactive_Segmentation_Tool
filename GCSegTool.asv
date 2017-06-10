@@ -22,16 +22,16 @@ function varargout = GCSegTool(varargin)
 
 % Edit the above text to modify the response to help GCSegTool
 
-% Last Modified by GUIDE v2.5 09-Jun-2017 15:34:45
+% Last Modified by GUIDE v2.5 10-Jun-2017 08:07:06
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
-                   'gui_Singleton',  gui_Singleton, ...
-                   'gui_OpeningFcn', @GCSegTool_OpeningFcn, ...
-                   'gui_OutputFcn',  @GCSegTool_OutputFcn, ...
-                   'gui_LayoutFcn',  [] , ...
-                   'gui_Callback',   []);
+    'gui_Singleton',  gui_Singleton, ...
+    'gui_OpeningFcn', @GCSegTool_OpeningFcn, ...
+    'gui_OutputFcn',  @GCSegTool_OutputFcn, ...
+    'gui_LayoutFcn',  [] , ...
+    'gui_Callback',   []);
 if nargin && ischar(varargin{1})
     gui_State.gui_Callback = str2func(varargin{1});
 end
@@ -69,7 +69,7 @@ guidata(hObject, handles);
 
 
 % --- Outputs from this function are returned to the command line.
-function varargout = GCSegTool_OutputFcn(hObject, eventdata, handles) 
+function varargout = GCSegTool_OutputFcn(hObject, eventdata, handles)
 % varargout  cell array for returning output args (see VARARGOUT);
 % hObject    handle to figure
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -132,7 +132,7 @@ function segmentPushbutton_Callback(hObject, eventdata, handles)
 % hObject    handle to segmentPushbutton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-global im fg bg;
+
 % Interactive Graph cuts Segmentation Algorithm
 % Towards Medical Image Analysis course
 % By Ravindra Gadde, Raghu Yalamanchili
@@ -141,11 +141,12 @@ global im fg bg;
 % in Y. Boykov, M. Jolly, "Interactive Graph Cuts for Optimal Boundary and
 % Region Segmentation of Objects in N-D Images", ICCV, 2001.
 
+global im fg bg;
+lambda=0;% Terminal Constant
 K=10; % Large constant
 sigma=1;% Similarity variance
-lambda=10^12;% Terminal Constant
+
 c=10^8;% Similarity Constant
-% mex maxflowmex.cpp maxflow-v3.0/graph.cpp maxflow-v3.0/maxflow.cpp % Mex
 
 m = double(rgb2gray(im));
 [height,width] = size(m);
@@ -159,8 +160,7 @@ N = height*width;
 E = edges4connected(height,width);
 V = c*exp(-abs(m(E(:,1))-m(E(:,2))))./(2*sigma^2);
 A = sparse(E(:,1),E(:,2),V,N,N,4*N);
-%   load 'ground_brain.mat' % Comment this part to manually select seeds
-T = calc_weights(m,fg,bg,K,lambda); 
+T = calc_weights(m,fg,bg,K,lambda);
 
 
 %Max flow Algorithm
@@ -168,21 +168,89 @@ disp('calculating maximum flow');
 
 [flow,labels] = maxflow(A,T);
 labels = reshape(labels,[height width]);
-for i = 1: height
-    for j = 1: width
-        if(labels(i,j)==0)
-            im_segment(i,j)=im(i,j);
-            
-        else
-            im_segment(i,j)=0;
-            
-            
+for k=1:3
+    for i = 1: height
+        for j = 1: width
+            if(labels(i,j)==0)
+                im_segment(i,j,k)=im(i,j,k);
+                
+            else
+                im_segment(i,j,k)=0;
+                
+                
+            end
         end
     end
 end
 
-imagesc(labels); title('labels');
+% imagesc(labels); title('labels');
 axes(handles.segAxes);
-imshow(uint8(im_segment),[]);
+imshow(uint8(im_segment));
 
 
+% --- Executes on slider movement.
+function lambdaSlider_Callback(hObject, eventdata, handles)
+% hObject    handle to lambdaSlider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'Value') returns position of slider
+%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
+
+global im fg bg;
+lambda=10^(100*get(hObject,'Value'));% Terminal Constant
+K=10; % Large constant
+sigma=1;% Similarity variance
+
+c=10^8;% Similarity Constant
+
+m = double(rgb2gray(im));
+[height,width] = size(m);
+
+disp('building graph');
+
+N = height*width;
+
+% construct graph
+% Calculate weighted graph
+E = edges4connected(height,width);
+V = c*exp(-abs(m(E(:,1))-m(E(:,2))))./(2*sigma^2);
+A = sparse(E(:,1),E(:,2),V,N,N,4*N);
+T = calc_weights(m,fg,bg,K,lambda);
+
+
+%Max flow Algorithm
+disp('calculating maximum flow');
+
+[flow,labels] = maxflow(A,T);
+labels = reshape(labels,[height width]);
+for k=1:3
+    for i = 1: height
+        for j = 1: width
+            if(labels(i,j)==0)
+                im_segment(i,j,k)=im(i,j,k);
+                
+            else
+                im_segment(i,j,k)=0;
+                
+                
+            end
+        end
+    end
+end
+
+% imagesc(labels); title('labels');
+axes(handles.segAxes);
+imshow(uint8(im_segment));
+
+
+% --- Executes during object creation, after setting all properties.
+function lambdaSlider_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to lambdaSlider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
